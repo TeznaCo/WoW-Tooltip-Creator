@@ -1,5 +1,17 @@
-import React, { useState } from 'react';
-import { Shield, Sword, Wand, Star, Heart, Zap, Feather, Flame, Droplet, Wind } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import html2canvas from 'html2canvas';
+import { Shield, Sword, Wand, Star, Heart, Zap, Feather, Flame, Droplet, Wind, Trash2 } from 'lucide-react';
+
+const KofiButton = () => (
+  <a 
+    href="https://ko-fi.com/teznaco"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-blue-400 hover:text-blue-300 transition-colors"
+  >
+    Buy me a coffee!
+  </a>
+);
 
 const ITEM_QUALITIES = [
   { name: 'Common', color: 'text-gray-400', bg: 'bg-gray-400' },
@@ -48,8 +60,8 @@ const IconDropdown = ({ selectedIcon, onSelectIcon }) => (
   </div>
 );
 
-const WoWTooltip = ({ itemName, itemLevel, quality, stats, effects, description, icon: IconComponent }) => (
-  <div className="bg-gray-800 text-white p-4 rounded-lg shadow-lg max-w-sm border border-gray-700 inline-block">
+const WoWTooltip = React.forwardRef(({ itemName, itemLevel, quality, stats, effects, description, icon: IconComponent }, ref) => (
+  <div ref={ref} className="bg-gray-800 text-white p-4 rounded-lg shadow-lg max-w-sm border border-gray-700 inline-block">
     <h2 className={`${ITEM_QUALITIES[quality].color} font-bold text-lg flex items-center mb-2`}>
       {React.createElement(IconComponent, { className: "mr-2 text-yellow-500", size: 20 })}
       {itemName || 'Unnamed Item'}
@@ -68,7 +80,7 @@ const WoWTooltip = ({ itemName, itemLevel, quality, stats, effects, description,
     ))}
     <p className="italic text-gray-500 mb-3">{description || 'No description'}</p>
   </div>
-);
+));
 
 const App = () => {
   const [itemName, setItemName] = useState('');
@@ -78,6 +90,7 @@ const App = () => {
   const [effects, setEffects] = useState([{ type: 'Equip', description: '' }]);
   const [description, setDescription] = useState('');
   const [selectedIcon, setSelectedIcon] = useState(0);
+  const tooltipRef = useRef(null);
 
   const handleStatChange = (index, field, value) => {
     const newStats = [...stats];
@@ -87,6 +100,11 @@ const App = () => {
 
   const addStat = () => setStats([...stats, { type: STAT_TYPES[0], value: '', custom: '' }]);
 
+  const removeStat = (index) => {
+    const newStats = stats.filter((_, i) => i !== index);
+    setStats(newStats);
+  };
+
   const handleEffectChange = (index, field, value) => {
     const newEffects = [...effects];
     newEffects[index][field] = value;
@@ -95,11 +113,28 @@ const App = () => {
 
   const addEffect = () => setEffects([...effects, { type: 'Equip', description: '' }]);
 
+  const removeEffect = (index) => {
+    const newEffects = effects.filter((_, i) => i !== index);
+    setEffects(newEffects);
+  };
+
+  const handleDownload = () => {
+    if (tooltipRef.current) {
+      html2canvas(tooltipRef.current).then((canvas) => {
+        const image = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = image;
+        link.download = 'wow-tooltip.png';
+        link.click();
+      });
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-8">
+    <div className="min-h-screen bg-gray-900 text-white p-8 relative flex flex-col">
       <h1 className="text-3xl font-bold mb-8 text-center">WoW Tooltip Customizer</h1>
-      <div className="flex flex-col items-center">
-        <div className="w-full max-w-xl space-y-4 mb-8">
+      <div className="flex justify-center space-x-8 flex-grow">
+        <div className="w-full max-w-xl space-y-4">
           <input
             className="w-full bg-gray-800 p-2 rounded"
             placeholder="Item Name"
@@ -150,6 +185,12 @@ const App = () => {
                 value={stat.value}
                 onChange={(e) => handleStatChange(index, 'value', e.target.value)}
               />
+              <button
+                className="bg-red-500 p-2 rounded hover:bg-red-600 transition"
+                onClick={() => removeStat(index)}
+              >
+                <Trash2 size={20} />
+              </button>
             </div>
           ))}
           <button
@@ -160,14 +201,22 @@ const App = () => {
           </button>
           {effects.map((effect, index) => (
             <div key={index} className="space-y-2">
-              <select
-                className="w-full bg-gray-800 p-2 rounded"
-                value={effect.type}
-                onChange={(e) => handleEffectChange(index, 'type', e.target.value)}
-              >
-                <option value="Equip">Equip</option>
-                <option value="Use">Use</option>
-              </select>
+              <div className="flex space-x-2">
+                <select
+                  className="w-full bg-gray-800 p-2 rounded"
+                  value={effect.type}
+                  onChange={(e) => handleEffectChange(index, 'type', e.target.value)}
+                >
+                  <option value="Equip">Equip</option>
+                  <option value="Use">Use</option>
+                </select>
+                <button
+                  className="bg-red-500 p-2 rounded hover:bg-red-600 transition"
+                  onClick={() => removeEffect(index)}
+                >
+                  <Trash2 size={20} />
+                </button>
+              </div>
               <input
                 className="w-full bg-gray-800 p-2 rounded"
                 placeholder={`What happens when you ${effect.type.toLowerCase()} this item?`}
@@ -190,9 +239,16 @@ const App = () => {
             rows={3}
           />
           <IconDropdown selectedIcon={selectedIcon} onSelectIcon={setSelectedIcon} />
+          <button
+            className="w-full bg-green-500 p-2 rounded hover:bg-green-600 transition"
+            onClick={handleDownload}
+          >
+            Download Tooltip
+          </button>
         </div>
-        <div className="flex justify-center w-full">
+        <div className="flex-shrink-0">
           <WoWTooltip
+            ref={tooltipRef}
             itemName={itemName}
             itemLevel={itemLevel}
             quality={quality}
@@ -205,6 +261,9 @@ const App = () => {
             icon={ICONS[selectedIcon].component}
           />
         </div>
+      </div>
+      <div className="flex justify-center mt-8">
+        <KofiButton />
       </div>
     </div>
   );
